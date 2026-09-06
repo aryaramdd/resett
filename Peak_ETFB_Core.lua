@@ -1922,7 +1922,7 @@ if MachineEnabled then
 				end
 				local pp = machine:FindFirstChildWhichIsA("BasePart", true)
 				if pp then
-					tweenTo(pp.Position + Vector3.new(0, 5, 0))
+					tweenTo(pp.Position + Vector3.new(0, -5, 0))
 				end
 				task.wait(0.3)
 				local ok = pcall(function()
@@ -1994,7 +1994,7 @@ if MachineEnabled then
 				-- ada isi: langsung COMBINE, jangan deposit lagi
 				local pp = currentMachine:FindFirstChildWhichIsA("BasePart", true)
 				if pp then
-					tweenTo(pp.Position + Vector3.new(0, 5, 0))
+					tweenTo(pp.Position + Vector3.new(0, -5, 0))
 				end
 				task.wait(0.3)
 				-- begitu remote Combine ditembak, cooldown LANGSUNG jalan berapa pun

@@ -2023,4 +2023,53 @@ if MachineEnabled then
 	end)
 end
 
+-- =====================================================================
+-- WEBHOOK SECTION - kirim popup game (RE/Misc/DisplayPopup) ke Discord
+-- Format: [Type] message — username
+-- Diaktifkan dari CONFIG.Webhook.Url (diset di loader).
+-- =====================================================================
+task.spawn(function()
+	local webhookUrl = cfg("Webhook", "Url")
+	if typeof(webhookUrl) ~= "string" or webhookUrl == "" then
+		return
+	end
+
+	local username = players.LocalPlayer.Name
+	local rs = game:GetService("ReplicatedStorage")
+	local remote
+	pcall(function()
+		remote = rs:WaitForChild("Shared"):WaitForChild("Remotes")
+			:WaitForChild("Networking"):WaitForChild("RE/Misc/DisplayPopup")
+	end)
+	if not remote then
+		return
+	end
+
+	local function send(msg)
+		pcall(function()
+			request({
+				Url = webhookUrl,
+				Method = "POST",
+				Headers = { ["Content-Type"] = "application/json" },
+				Body = game:GetService("HttpService"):JSONEncode({ content = msg }),
+			})
+		end)
+	end
+
+	remote.OnClientEvent:Connect(function(popupType, ...)
+		local args = { ... }
+		local msg = args[1]
+		if typeof(msg) == "table" then
+			-- kadang pesan dikirim sebagai tabel (misal GlobalMessage: { Text = ... })
+			msg = msg.Text or msg.Message
+		end
+		local txt = msg and tostring(msg) or ""
+		if txt ~= "" then
+			send("**[ " .. tostring(popupType) .. " ]** " .. txt .. " — " .. username)
+		end
+	end)
+
+	print("[Peak ETFB] Webhook aktif: " .. username)
+end)
+
 print("[Peak ETFB] Core loaded (no UI) - semua fitur dari getgenv().CONFIG")

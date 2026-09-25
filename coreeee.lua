@@ -1715,23 +1715,26 @@ function UI.build()
 		}, hub)
 		UI.hubNickname = mk("TextLabel", {
 			Size = UDim2.new(0.99, 0, 0, 78), Position = UDim2.new(0.005, 0, 0.01, 0),
-			BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 66,
+			BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 66, TextScaled = true,
 			TextColor3 = C.text, TextXAlignment = Enum.TextXAlignment.Center,
 			TextTruncate = Enum.TextTruncate.AtEnd, Text = LP.Name, ZIndex = 1001,
 		}, hub)
+		mk("UITextSizeConstraint", { MinTextSize = 24, MaxTextSize = 66 }, UI.hubNickname)
 		UI.hubStats = mk("TextLabel", {
 			Size = UDim2.new(0.99, 0, 0.7, 0), Position = UDim2.new(0.005, 0, 0.14, 0),
-			BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 44,
+			BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 44, TextScaled = true,
 			TextColor3 = C.text, TextXAlignment = Enum.TextXAlignment.Center,
 			TextYAlignment = Enum.TextYAlignment.Center, TextWrapped = true,
 			LineHeight = 1.45, Text = "Loading stats...", ZIndex = 1001,
 		}, hub)
+		mk("UITextSizeConstraint", { MinTextSize = 18, MaxTextSize = 44 }, UI.hubStats)
 		UI.hubUptime = mk("TextLabel", {
 			Size = UDim2.new(0.99, 0, 0.08, 0), Position = UDim2.new(0.005, 0, 0.9, 0),
-			BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 34,
+			BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 34, TextScaled = true,
 			TextColor3 = C.on, TextXAlignment = Enum.TextXAlignment.Center,
 			Text = "UPTIME | 00:00:00", ZIndex = 1001,
 		}, hub)
+		mk("UITextSizeConstraint", { MinTextSize = 20, MaxTextSize = 34 }, UI.hubUptime)
 		main.Visible = false
 	end
 

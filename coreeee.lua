@@ -277,7 +277,7 @@ local CFG = {
 		ConfigId   = nil,            -- tham số 4 (nil nếu không đổi config)
 		KeepItem   = true,           -- không cho Boost xài món này trong lúc chờ đổi acc
 	},
-	Performance = { Enabled = true, DisableWind = true, UIInterval = 1 },
+	Performance = { Enabled = true, DisableWind = true, UIInterval = 1, FPSCap = 60 },
 	-- Xóa object ở client. Tắt/Stop chỉ ngừng dọn; vào lại server để tải lại cảnh đã xóa.
 	WorkspaceCleanup = {
 		Enabled = true, Interval = 3, BatchSize = 4,
@@ -1208,6 +1208,14 @@ end
 
 function Performance.apply()
 	if not CFG.Performance.Enabled then return end
+	local fpsCap = tonumber(CFG.Performance.FPSCap) or 0
+	if fpsCap > 0 then
+		pcall(function()
+			local rendering = settings().Rendering
+			pcall(function() rendering.FrameRateCap = fpsCap end)
+			pcall(function() rendering.FramerateCap = fpsCap end)
+		end)
+	end
 	if CFG.Performance.DisableWind then
 		RT.oldWindDisabled = LP:GetAttribute("WindDisabled")
 		LP:SetAttribute("WindDisabled", true) -- WindController: Cleanup/Pause, giữ collision/map

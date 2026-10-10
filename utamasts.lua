@@ -96,6 +96,31 @@ local request_func = (syn and syn.request) or (http and http.request)
 local DISCORD_WEBHOOK_DEFAULT = "https://webhook-cathy.vercel.app/api/webhooks/1496693380493869108/d_Asq17-cDNSzPyH6k3IIpiSfWpSpWBKXOyn5aY4GMmwnfIhQPvNHF2AV_yaOjHrJ03l"
 local DISCORD_WEBHOOK = DISCORD_WEBHOOK_DEFAULT
 
+-- ============================================ \\
+--   ROUTING KE PROXY
+--   User tempel URL Discord biasa -> otomatis lewat proxy lo.
+--   Biar Discord gak rate limit / block notif farming yang rame.
+--   URL yang udah proxy / punya relay sendiri -> dibiarkan.
+-- ============================================ \\
+local WEBHOOK_PROXY = "https://webhook-cathy.vercel.app"
+
+local function routeThroughProxy(url)
+    if type(url) ~= "string" or url == "" then return url end
+    -- udah lewat proxy, jangan diapa-apain
+    if url:find("^https://webhook%-cathy%.vercel%.app/") then return url end
+    -- discord.com / discordapp.com / ptb / canary -> pindahin host ke proxy
+    local path = url:match("^https://discord%.com(/api/webhooks/.+)$")
+        or url:match("^https://discordapp%.com(/api/webhooks/.+)$")
+        or url:match("^https://ptb%.discord%.com(/api/webhooks/.+)$")
+        or url:match("^https://canary%.discord%.com(/api/webhooks/.+)$")
+    if path then
+        print("[Webhook] Dialihkan lewat proxy.")
+        return WEBHOOK_PROXY .. path
+    end
+    -- selain itu biarin (user mungkin punya relay sendiri)
+    return url
+end
+
 local function fetchMyWebhook()
     if not request_func then return end
     local key = rawget(_G, "script_key")
@@ -122,7 +147,7 @@ local function fetchMyWebhook()
     local raw = tostring(res.Body or "")
     local body = raw:match('^"(.*)"$')
     if body and body:find("^https://") then
-        DISCORD_WEBHOOK = body
+        DISCORD_WEBHOOK = routeThroughProxy(body)
         print("[Webhook] Loaded dari dashboard.")
     else
         warn("[Webhook] Belum diset di dashboard, pakai default.")

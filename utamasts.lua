@@ -149,7 +149,17 @@ local function sendData()
         LocalPlayer.leaderstats:FindFirstChild("Money") or
         LocalPlayer.leaderstats:FindFirstChild("Cash")
     )
-    local moneyVal = money and tostring(money.Value) or "0"
+    -- =========================================================
+    -- JANGAN kirim money kalau belum kebaca.
+    -- leaderstats belum ke-load pas bot baru masuk game / respawn.
+    -- Kalau tetep dikirim "0", nilai lama yang udah ke-save
+    -- jadi KETIMPA jadi 0 di database.
+    -- Makanya field money dilewat aja -- PostgREST cuma ngirim
+    -- kolom yang ada di body, jadi UPDATE gak nyentuh money.
+    -- =========================================================
+    local moneyVal = (money and money.Value) or nil
+    if moneyVal then moneyVal = tostring(moneyVal) end
+
     local slot = "N/A"
     for _, v in ipairs(LocalPlayer.PlayerGui:GetDescendants()) do
         if v:IsA("TextLabel") and v.Text:match("%d+/%d+") then
@@ -168,13 +178,20 @@ local function sendData()
                 ["Content-Type"]  = "application/json",
                 ["Prefer"]        = "resolution=merge-duplicates"
             },
-            Body = HttpService:JSONEncode({
-                username    = LocalPlayer.Name,
-                money       = moneyVal,
-                slot_tas    = slot,
-                isi_tas     = inv,
-                last_update = os.date("!%Y-%m-%dT%H:%M:%SZ")
-            })
+            Body = (function()
+                local b = {
+                    username    = LocalPlayer.Name,
+                    slot_tas    = slot,
+                    isi_tas     = inv,
+                    last_update = os.date("!%Y-%m-%dT%H:%M:%SZ")
+                }
+                if moneyVal and moneyVal ~= "0" then
+                    b.money = moneyVal
+                else
+                    warn("[STATS] money belum kebaca -> kolom money gak dikirim (nilai lama dipertahankan)")
+                end
+                return HttpService:JSONEncode(b)
+            end)()
         })
     end
 end

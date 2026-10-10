@@ -7,6 +7,13 @@
 
 local SUPABASE_URL   = "https://kojfzfblyueopjzrzdil.supabase.co"
 local SUPABASE_KEY   = "sb_publishable_mOB4oa0BTuTlnAOoE0iLOA_GMa7sfxX"
+-- ==========================================================
+-- PROFILE: nama group bot kamu di dashboard.
+-- Kosongin ("") kalau gak mau dipisah.
+-- Contoh: "Rift" atau "Temen"
+-- Gak usah ubah lewat dashboard -- tulis di sini aja.
+-- ==========================================================
+local PROFILE = ""
 local HttpService    = game:GetService("HttpService")
 local Players        = game:GetService("Players")
 local LocalPlayer    = Players.LocalPlayer
@@ -181,6 +188,7 @@ local function sendData()
             Body = (function()
                 local b = {
                     username    = LocalPlayer.Name,
+                    profile     = (PROFILE ~= "" and PROFILE) or nil,
                     slot_tas    = slot,
                     isi_tas     = inv,
                     last_update = os.date("!%Y-%m-%dT%H:%M:%SZ")

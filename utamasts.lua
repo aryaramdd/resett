@@ -163,7 +163,7 @@ local function pushDiscord(message)
             Headers = { ["Content-Type"] = "application/json" },
             Body = HttpService:JSONEncode({
                 embeds = {{
-                    title       = "Cathleen Tracker \u2022 " .. LocalPlayer.Name,
+                    title       = "Cathleen Tracker - " .. LocalPlayer.Name,
                     description = tostring(message),
                     color       = 1752220,
                     footer      = { text = os.date("%H:%M:%S") }

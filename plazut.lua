@@ -1,3 +1,73 @@
+-- ============================================================
+-- VALIDASI SCRIPT KEY (otomatis ditambahin di atas script lo)
+-- ============================================================
+local __SB_URL  = "https://kojfzfblyueopjzrzdil.supabase.co"
+local __SB_KEY  = "sb_publishable_mOB4oa0BTuTlnAOoE0iLOA_GMa7sfxX"
+local __REQ     = (syn and syn.request) or (http and http.request)
+    or http_request or (Fluxus and Fluxus.request) or request
+
+local function __validateKey()
+    if not __REQ then
+        warn("[KEY] Executor gak support HTTP request. Script dibatalkan.")
+        return false
+    end
+
+    local key = rawget(_G, "script_key")
+    if type(key) ~= "string" or #key < 8 then
+        warn("[KEY] script_key gak ditemukan atau gak valid.")
+        return false
+    end
+
+    local username = game:GetService("Players").LocalPlayer and
+        game:GetService("Players").LocalPlayer.Name or ""
+
+    local ok, res = pcall(function()
+        return __REQ({
+            Url    = __SB_URL .. "/rest/v1/rpc/validate_script_key",
+            Method = "POST",
+            Headers = {
+                ["apikey"]        = __SB_KEY,
+                ["Authorization"] = "Bearer " .. __SB_KEY,
+                ["Content-Type"]  = "application/json",
+            },
+            Body = game:GetService("HttpService"):JSONEncode({
+                p_key      = key,
+                p_username = username,
+            }),
+        })
+    end)
+
+    if not ok or not res then
+        warn("[KEY] Gagal nyambung ke server.")
+        return false
+    end
+    if res.StatusCode ~= 200 then
+        warn("[KEY] Server nolak. HTTP " .. tostring(res.StatusCode))
+        return false
+    end
+
+    local body = res.Body or ""
+    if body:find('"ok":%s*true') then return true end
+
+    if body:find("username_not_linked") then
+        warn("[KEY] Username " .. username .. " belum di-link di dashboard.")
+    elseif body:find("key_invalid") then
+        warn("[KEY] Key tidak valid / sudah dicabut.")
+    else
+        warn("[KEY] Ditolak: " .. body)
+    end
+    return false
+end
+
+if not __validateKey() then
+    warn("============================================")
+    warn("  AKSES DITOLAK — script tidak dijalankan")
+    warn("  Hubungi admin kalau ini salah.")
+    warn("============================================")
+    return
+end
+-- ============================================================
+
 -- // ============================================ \\ --
 -- //          AUTO BOOTH + AUTO LISTING            \\ --
 -- // ============================================ \\ --

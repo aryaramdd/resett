@@ -1,113 +1,6 @@
 -- ============================================================
 -- VALIDASI SCRIPT KEY (otomatis ditambahin di atas script lo)
 -- ============================================================
-local __SB_URL  = "https://kojfzfblyueopjzrzdil.supabase.co"
-local __SB_KEY  = "sb_publishable_mOB4oa0BTuTlnAOoE0iLOA_GMa7sfxX"
-local __REQ     = (syn and syn.request) or (http and http.request)
-    or http_request or (Fluxus and Fluxus.request) or request
-
--- ============================================================
--- PICKUP KEY — multi-channel.
--- Banyak executor ngasih environment terpisah buat hasil
--- loadstring(), jadi global dari loader sering gak keliatan.
--- Makanya key juga dilewatkan langsung sebagai ARGUMEN:
---     loadstring(game:HttpGet("url"))("key")
--- ============================================================
-local __CHUNK_ARGS = {...}
-
-local function __getKey()
-    -- 1. argumen langsung (paling reliable, gak peduli environment)
-    if type(__CHUNK_ARGS[1]) == "string" and #__CHUNK_ARGS[1] >= 8 then
-        return __CHUNK_ARGS[1], "argumen"
-    end
-
-    -- 2. getgenv (Synapse / Fluxus / ScriptWare / dll)
-    local okg, genv = pcall(function() return getgenv() end)
-    if okg and type(genv) == "table"
-       and type(genv.script_key) == "string" and #genv.script_key >= 8 then
-        return genv.script_key, "getgenv"
-    end
-
-    -- 3. global environment
-    local g1 = rawget(_G, "script_key")
-    if type(g1) == "string" and #g1 >= 8 then return g1, "_G.rawget" end
-    local g2 = _G.script_key
-    if type(g2) == "string" and #g2 >= 8 then return g2, "_G" end
-
-    -- 4. getfenv berlapis
-    for i = 0, 4 do
-        local okf, env = pcall(function() return getfenv(i) end)
-        if okf and type(env) == "table"
-           and type(env.script_key) == "string" and #env.script_key >= 8 then
-            return env.script_key, "getfenv(" .. i .. ")"
-        end
-    end
-
-    return nil, nil
-end
-
-local function __validateKey()
-    if not __REQ then
-        warn("[KEY] Executor gak support HTTP request. Script dibatalkan.")
-        return false
-    end
-
-    local key, src = __getKey()
-    if not key then
-        warn("[KEY] script_key gak ketemu di semua channel.")
-        warn("[KEY] Coba: loadstring(...)('key')  <- key jadi ARGUMEN")
-        return false
-    end
-    print("[KEY] Key terdeteksi via: " .. tostring(src))
-
-    local username = game:GetService("Players").LocalPlayer and
-        game:GetService("Players").LocalPlayer.Name or ""
-
-    local ok, res = pcall(function()
-        return __REQ({
-            Url    = __SB_URL .. "/rest/v1/rpc/validate_script_key",
-            Method = "POST",
-            Headers = {
-                ["apikey"]        = __SB_KEY,
-                ["Authorization"] = "Bearer " .. __SB_KEY,
-                ["Content-Type"]  = "application/json",
-            },
-            Body = game:GetService("HttpService"):JSONEncode({
-                p_key      = key,
-                p_username = username,
-            }),
-        })
-    end)
-
-    if not ok or not res then
-        warn("[KEY] Gagal nyambung ke server.")
-        return false
-    end
-    if res.StatusCode ~= 200 then
-        warn("[KEY] Server nolak. HTTP " .. tostring(res.StatusCode))
-        return false
-    end
-
-    local body = res.Body or ""
-    if body:find('"ok":%s*true') then return true end
-
-    if body:find("username_not_linked") then
-        warn("[KEY] Username " .. username .. " belum di-link di dashboard.")
-    elseif body:find("key_invalid") then
-        warn("[KEY] Key tidak valid / sudah dicabut.")
-    else
-        warn("[KEY] Ditolak: " .. body)
-    end
-    return false
-end
-
-if not __validateKey() then
-    warn("============================================")
-    warn("  AKSES DITOLAK — script tidak dijalankan")
-    warn("  Hubungi admin kalau ini salah.")
-    warn("============================================")
-    return
-end
 -- ============================================================
 
 -- // ============================================ \\ --
@@ -130,8 +23,8 @@ local SCAN_DELAY = 3
 -- // LISTING CONFIG \\ --
 local SUPABASE_URL = "https://kojfzfblyueopjzrzdil.supabase.co/rest/v1"
 local SUPABASE_KEY = "sb_publishable_mOB4oa0BTuTlnAOoE0iLOA_GMa7sfxX"
--- Webhook diambil dari dashboard (Supabase) berdasarkan script_key.
--- Ganti webhook? Cuma lewat dashboard, gak usah buka GitHub.
+-- Webhook: pakai yang bawaan script di bawah ini.
+-- Ganti webhook? Ubah DISCORD_WEBHOOK_DEFAULT aja.
 -- Kalau user gak set webhook, fallback ke default di bawah.
 local DISCORD_WEBHOOK_DEFAULT = "https://webhook-cathy.vercel.app/api/webhooks/1496693380493869108/d_Asq17-cDNSzPyH6k3IIpiSfWpSpWBKXOyn5aY4GMmwnfIhQPvNHF2AV_yaOjHrJ03l"
 local DISCORD_WEBHOOK = DISCORD_WEBHOOK_DEFAULT
@@ -161,44 +54,7 @@ local function routeThroughProxy(url)
     return url
 end
 
-local function fetchMyWebhook()
-    local req = (syn and syn.request) or (http and http.request)
-        or http_request or (Fluxus and Fluxus.request) or request
-    if not req then return end
 
-    local key = rawget(_G, "script_key")
-    if type(key) ~= "string" or #key < 8 then return end
-
-    local ok, res = pcall(function()
-        return req({
-            Url = "https://kojfzfblyueopjzrzdil.supabase.co/rest/v1/rpc/get_webhook_by_key",
-            Method = "POST",
-            Headers = {
-                ["apikey"]        = "sb_publishable_mOB4oa0BTuTlnAOoE0iLOA_GMa7sfxX",
-                ["Authorization"] = "Bearer sb_publishable_mOB4oa0BTuTlnAOoE0iLOA_GMa7sfxX",
-                ["Content-Type"]  = "application/json",
-            },
-            Body = HttpService:JSONEncode({ p_key = key }),
-        })
-    end)
-
-    if not ok or not res or res.StatusCode ~= 200 then
-        warn("[Webhook] Gagal ambil dari server, pakai default.")
-        return
-    end
-
-    -- PostgREST balikin string JSON: "https://..." atau null
-    local raw = tostring(res.Body or "")
-    local body = raw:match('^"(.*)"$')
-    if body and body:find("^https://") then
-        DISCORD_WEBHOOK = routeThroughProxy(body)
-        print("[Webhook] Loaded dari dashboard.")
-    else
-        warn("[Webhook] Belum diset di dashboard, pakai default.")
-    end
-end
-
-fetchMyWebhook()
 local TokenPath = Player:WaitForChild("leaderstats"):WaitForChild("Trade Tokens")
 local RemoteRestock = Networking:WaitForChild("RF/ListBoothOffering")
 

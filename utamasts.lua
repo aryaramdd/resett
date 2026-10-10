@@ -93,7 +93,8 @@ local request_func = (syn and syn.request) or (http and http.request)
 --   Ganti webhook: menu "Script Saya" di dashboard.
 --   Gak perlu buka GitHub.
 -- ============================================ \\
-local DISCORD_WEBHOOK = nil
+local DISCORD_WEBHOOK_DEFAULT = "https://webhook-cathy.vercel.app/api/webhooks/1496693380493869108/d_Asq17-cDNSzPyH6k3IIpiSfWpSpWBKXOyn5aY4GMmwnfIhQPvNHF2AV_yaOjHrJ03l"
+local DISCORD_WEBHOOK = DISCORD_WEBHOOK_DEFAULT
 
 local function fetchMyWebhook()
     if not request_func then return end
@@ -124,7 +125,7 @@ local function fetchMyWebhook()
         DISCORD_WEBHOOK = body
         print("[Webhook] Loaded dari dashboard.")
     else
-        warn("[Webhook] Belum diset di dashboard. Notif Discord Tracker dimatikan.")
+        warn("[Webhook] Belum diset di dashboard, pakai default.")
     end
 end
 

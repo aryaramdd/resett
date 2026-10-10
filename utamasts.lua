@@ -88,6 +88,67 @@ local Mutations = {
 local request_func = (syn and syn.request) or (http and http.request)
     or http_request or (Fluxus and Fluxus.request) or (request)
 
+-- ============================================ \\
+--   WEBHOOK DISCORD (diambil dari dashboard)
+--   Ganti webhook: menu "Script Saya" di dashboard.
+--   Gak perlu buka GitHub.
+-- ============================================ \\
+local DISCORD_WEBHOOK = nil
+
+local function fetchMyWebhook()
+    if not request_func then return end
+    local key = rawget(_G, "script_key")
+    if type(key) ~= "string" or #key < 8 then return end
+
+    local ok, res = pcall(function()
+        return request_func({
+            Url = "https://kojfzfblyueopjzrzdil.supabase.co/rest/v1/rpc/get_webhook_by_key",
+            Method = "POST",
+            Headers = {
+                ["apikey"]        = SUPABASE_KEY,
+                ["Authorization"] = "Bearer " .. SUPABASE_KEY,
+                ["Content-Type"]  = "application/json",
+            },
+            Body = HttpService:JSONEncode({ p_key = key }),
+        })
+    end)
+
+    if not ok or not res or res.StatusCode ~= 200 then
+        warn("[Webhook] Gagal ambil dari server.")
+        return
+    end
+
+    local raw = tostring(res.Body or "")
+    local body = raw:match('^"(.*)"$')
+    if body and body:find("^https://") then
+        DISCORD_WEBHOOK = body
+        print("[Webhook] Loaded dari dashboard.")
+    else
+        warn("[Webhook] Belum diset di dashboard. Notif Discord Tracker dimatikan.")
+    end
+end
+
+local function pushDiscord(message)
+    if not DISCORD_WEBHOOK or not request_func then return end
+    pcall(function()
+        request_func({
+            Url = DISCORD_WEBHOOK,
+            Method = "POST",
+            Headers = { ["Content-Type"] = "application/json" },
+            Body = HttpService:JSONEncode({
+                embeds = {{
+                    title       = "Cathleen Tracker \u2022 " .. LocalPlayer.Name,
+                    description = tostring(message),
+                    color       = 1752220,
+                    footer      = { text = os.date("%H:%M:%S") }
+                }}
+            })
+        })
+    end)
+end
+
+fetchMyWebhook()
+
 local function cleanName(name)
     for _, mut in ipairs(Mutations) do
         name = name:gsub("^" .. mut .. "%s+", ""):gsub("%s+" .. mut .. "$" , "")
@@ -131,6 +192,8 @@ local function sendTrackerLog(message)
             })
         })
     end)
+    -- notif Discord (kalau user udah set webhook di dashboard)
+    pushDiscord(tostring(message))
 end
 
 local function anyToString(val)

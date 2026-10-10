@@ -88,7 +88,50 @@ local SCAN_DELAY = 3
 -- // LISTING CONFIG \\ --
 local SUPABASE_URL = "https://kojfzfblyueopjzrzdil.supabase.co/rest/v1"
 local SUPABASE_KEY = "sb_publishable_mOB4oa0BTuTlnAOoE0iLOA_GMa7sfxX"
-local DISCORD_WEBHOOK = "https://webhook-cathy.vercel.app/api/webhooks/1496693380493869108/d_Asq17-cDNSzPyH6k3IIpiSfWpSpWBKXOyn5aY4GMmwnfIhQPvNHF2AV_yaOjHrJ03l"
+-- Webhook diambil dari dashboard (Supabase) berdasarkan script_key.
+-- Ganti webhook? Cuma lewat dashboard, gak usah buka GitHub.
+-- Kalau user gak set webhook, fallback ke default di bawah.
+local DISCORD_WEBHOOK_DEFAULT = "https://webhook-cathy.vercel.app/api/webhooks/1496693380493869108/d_Asq17-cDNSzPyH6k3IIpiSfWpSpWBKXOyn5aY4GMmwnfIhQPvNHF2AV_yaOjHrJ03l"
+local DISCORD_WEBHOOK = DISCORD_WEBHOOK_DEFAULT
+
+local function fetchMyWebhook()
+    local req = (syn and syn.request) or (http and http.request)
+        or http_request or (Fluxus and Fluxus.request) or request
+    if not req then return end
+
+    local key = rawget(_G, "script_key")
+    if type(key) ~= "string" or #key < 8 then return end
+
+    local ok, res = pcall(function()
+        return req({
+            Url = "https://kojfzfblyueopjzrzdil.supabase.co/rest/v1/rpc/get_webhook_by_key",
+            Method = "POST",
+            Headers = {
+                ["apikey"]        = "sb_publishable_mOB4oa0BTuTlnAOoE0iLOA_GMa7sfxX",
+                ["Authorization"] = "Bearer sb_publishable_mOB4oa0BTuTlnAOoE0iLOA_GMa7sfxX",
+                ["Content-Type"]  = "application/json",
+            },
+            Body = HttpService:JSONEncode({ p_key = key }),
+        })
+    end)
+
+    if not ok or not res or res.StatusCode ~= 200 then
+        warn("[Webhook] Gagal ambil dari server, pakai default.")
+        return
+    end
+
+    -- PostgREST balikin string JSON: "https://..." atau null
+    local raw = tostring(res.Body or "")
+    local body = raw:match('^"(.*)"$')
+    if body and body:find("^https://") then
+        DISCORD_WEBHOOK = body
+        print("[Webhook] Loaded dari dashboard.")
+    else
+        warn("[Webhook] Belum diset di dashboard, pakai default.")
+    end
+end
+
+fetchMyWebhook()
 local TokenPath = Player:WaitForChild("leaderstats"):WaitForChild("Trade Tokens")
 local RemoteRestock = Networking:WaitForChild("RF/ListBoothOffering")
 

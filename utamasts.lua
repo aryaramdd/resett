@@ -319,8 +319,24 @@ local function sendData()
         end
     end
     local inv = getInventory()
-    if request_func then
-        request_func({
+    if not request_func then
+        warn("[STATS] gak ada request_func")
+        return
+    end
+
+    local body = HttpService:JSONEncode({
+        username    = LocalPlayer.Name,
+        money       = moneyVal,
+        slot_tas    = slot,
+        isi_tas     = inv,
+        last_update = os.date("!%Y-%m-%dT%H:%M:%SZ")
+    })
+
+    -- DEBUG: print payload dulu biar keliatan apa yang dikirim
+    print("[STATS] payload: " .. body)
+
+    local ok, res = pcall(function()
+        return request_func({
             Url    = SUPABASE_URL .. "/rest/v1/player_stats",
             Method = "POST",
             Headers = {
@@ -329,14 +345,21 @@ local function sendData()
                 ["Content-Type"]  = "application/json",
                 ["Prefer"]        = "resolution=merge-duplicates"
             },
-            Body = HttpService:JSONEncode({
-                username    = LocalPlayer.Name,
-                money       = moneyVal,
-                slot_tas    = slot,
-                isi_tas     = inv,
-                last_update = os.date("!%Y-%m-%dT%H:%M:%SZ")
-            })
+            Body = body
         })
+    end)
+
+    -- DEBUG: print respon server
+    if not ok then
+        warn("[STATS] request error: " .. tostring(res))
+        return
+    end
+    local code = res and res.StatusCode or "?"
+    if tonumber(code) and tonumber(code) >= 400 then
+        warn("[STATS] SERVER TOLAK " .. tostring(code))
+        warn("[STATS] body: " .. tostring(res.Body))
+    else
+        print("[STATS] OK " .. tostring(code))
     end
 end
 
@@ -344,7 +367,10 @@ task.spawn(function()
     print("✅ Cathleen ETFB Tracker Active!")
     pcall(hookDisplayPopup)
     while true do
-        pcall(sendData)
+        local okS, errS = pcall(sendData)
+        if not okS then
+            warn("[STATS] sendData CRASH: " .. tostring(errS))
+        end
         task.wait(UPDATE_INTERVAL)
     end
 end)

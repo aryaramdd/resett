@@ -6,17 +6,59 @@ local __SB_KEY  = "sb_publishable_mOB4oa0BTuTlnAOoE0iLOA_GMa7sfxX"
 local __REQ     = (syn and syn.request) or (http and http.request)
     or http_request or (Fluxus and Fluxus.request) or request
 
+-- ============================================================
+-- PICKUP KEY — multi-channel.
+-- Banyak executor ngasih environment terpisah buat hasil
+-- loadstring(), jadi global dari loader sering gak keliatan.
+-- Makanya key juga dilewatkan langsung sebagai ARGUMEN:
+--     loadstring(game:HttpGet("url"))("key")
+-- ============================================================
+local __CHUNK_ARGS = {...}
+
+local function __getKey()
+    -- 1. argumen langsung (paling reliable, gak peduli environment)
+    if type(__CHUNK_ARGS[1]) == "string" and #__CHUNK_ARGS[1] >= 8 then
+        return __CHUNK_ARGS[1], "argumen"
+    end
+
+    -- 2. getgenv (Synapse / Fluxus / ScriptWare / dll)
+    local okg, genv = pcall(function() return getgenv() end)
+    if okg and type(genv) == "table"
+       and type(genv.script_key) == "string" and #genv.script_key >= 8 then
+        return genv.script_key, "getgenv"
+    end
+
+    -- 3. global environment
+    local g1 = rawget(_G, "script_key")
+    if type(g1) == "string" and #g1 >= 8 then return g1, "_G.rawget" end
+    local g2 = _G.script_key
+    if type(g2) == "string" and #g2 >= 8 then return g2, "_G" end
+
+    -- 4. getfenv berlapis
+    for i = 0, 4 do
+        local okf, env = pcall(function() return getfenv(i) end)
+        if okf and type(env) == "table"
+           and type(env.script_key) == "string" and #env.script_key >= 8 then
+            return env.script_key, "getfenv(" .. i .. ")"
+        end
+    end
+
+    return nil, nil
+end
+
 local function __validateKey()
     if not __REQ then
         warn("[KEY] Executor gak support HTTP request. Script dibatalkan.")
         return false
     end
 
-    local key = rawget(_G, "script_key")
-    if type(key) ~= "string" or #key < 8 then
-        warn("[KEY] script_key gak ditemukan atau gak valid.")
+    local key, src = __getKey()
+    if not key then
+        warn("[KEY] script_key gak ketemu di semua channel.")
+        warn("[KEY] Coba: loadstring(...)('key')  <- key jadi ARGUMEN")
         return false
     end
+    print("[KEY] Key terdeteksi via: " .. tostring(src))
 
     local username = game:GetService("Players").LocalPlayer and
         game:GetService("Players").LocalPlayer.Name or ""

@@ -343,7 +343,9 @@ local function sendData()
                 ["apikey"]        = SUPABASE_KEY,
                 ["Authorization"] = "Bearer " .. SUPABASE_KEY,
                 ["Content-Type"]  = "application/json",
-                ["Prefer"]        = "resolution=merge-duplicates"
+                -- return=minimal: matiin RETURNING.
+                -- Tanpa ini Postgres minta SELECT semua kolom -> 42501.
+                ["Prefer"]        = "resolution=merge-duplicates,return=minimal"
             },
             Body = body
         })

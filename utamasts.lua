@@ -324,46 +324,87 @@ local function sendData()
         return
     end
 
-    local body = HttpService:JSONEncode({
+    local payload = {
         username    = LocalPlayer.Name,
         money       = moneyVal,
         slot_tas    = slot,
         isi_tas     = inv,
         last_update = os.date("!%Y-%m-%dT%H:%M:%SZ")
+    }
+    local body = HttpService:JSONEncode(payload)
+
+    -- =====================================================
+    -- JANGAN pake "ON CONFLICT" (upsert).
+    -- Di RLS, ON CONFLICT wajib BACA baris lama buat deteksi
+    -- konflik -> butuh policy SELECT. Role anon gak punya
+    -- (ps_select_owner cuma buat authenticated) -> selalu gagal
+    -- "new row violates row-level security policy".
+    -- INSERT polos TERBUKTI jalan. Makanya dipisah:
+    --   1. UPDATE dulu (ps_update_bot: using true -> jalan)
+    --   2. kalau 0 baris ke-update -> INSERT polos
+    -- =====================================================
+    local BASE = SUPABASE_URL .. "/rest/v1/player_stats"
+    local HEAD = {
+        ["apikey"]        = SUPABASE_KEY,
+        ["Authorization"] = "Bearer " .. SUPABASE_KEY,
+        ["Content-Type"]  = "application/json"
+    }
+
+    -- tahap 1: UPDATE baris yang udah ada
+    local updBody = HttpService:JSONEncode({
+        money       = payload.money,
+        slot_tas    = payload.slot_tas,
+        isi_tas     = payload.isi_tas,
+        last_update = payload.last_update
     })
 
-    -- DEBUG: print payload dulu biar keliatan apa yang dikirim
-    print("[STATS] payload: " .. body)
-
-    local ok, res = pcall(function()
+    local okU, resU = pcall(function()
         return request_func({
-            Url    = SUPABASE_URL .. "/rest/v1/player_stats",
-            Method = "POST",
-            Headers = {
-                ["apikey"]        = SUPABASE_KEY,
-                ["Authorization"] = "Bearer " .. SUPABASE_KEY,
-                ["Content-Type"]  = "application/json",
-                -- return=minimal: matiin RETURNING.
-                -- Tanpa ini Postgres minta SELECT semua kolom -> 42501.
-                ["Prefer"]        = "resolution=merge-duplicates,return=minimal"
-            },
-            Body = body
+            Url     = BASE .. "?username=eq." .. HttpService:UrlEncode(LocalPlayer.Name),
+            Method  = "PATCH",
+            Headers = HEAD,
+            Body    = updBody
         })
     end)
 
-    -- DEBUG: print respon server
-    if not ok then
-        warn("[STATS] request error: " .. tostring(res))
+    if not okU then
+        warn("[STATS] UPDATE crash: " .. tostring(resU))
         return
     end
-    local code = res and res.StatusCode or "?"
-    if tonumber(code) and tonumber(code) >= 400 then
-        warn("[STATS] SERVER TOLAK " .. tostring(code))
-        warn("[STATS] body: " .. tostring(res.Body))
+
+    -- 204 = ada baris ke-update. 406/[] = gak ada baris sama sekali.
+    local codeU = tonumber(resU and resU.StatusCode) or 0
+    local updated = (codeU == 204 or codeU == 200)
+
+    if updated then
+        print("[STATS] OK update " .. tostring(codeU))
+        return
+    end
+
+    -- tahap 2: baris belum ada -> INSERT polos (tanpa ON CONFLICT)
+    local okI, resI = pcall(function()
+        return request_func({
+            Url     = BASE,
+            Method  = "POST",
+            Headers = HEAD,
+            Body    = body
+        })
+    end)
+
+    if not okI then
+        warn("[STATS] INSERT crash: " .. tostring(resI))
+        return
+    end
+
+    local codeI = tonumber(resI and resI.StatusCode) or 0
+    if codeI >= 400 then
+        warn("[STATS] SERVER TOLAK " .. tostring(codeI))
+        warn("[STATS] body: " .. tostring(resI.Body))
     else
-        print("[STATS] OK " .. tostring(code))
+        print("[STATS] OK insert " .. tostring(codeI))
     end
 end
+
 
 task.spawn(function()
     print("✅ Cathleen ETFB Tracker Active!")

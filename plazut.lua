@@ -23,6 +23,12 @@ local SCAN_DELAY = 3
 -- // LISTING CONFIG \\ --
 local SUPABASE_URL = "https://kojfzfblyueopjzrzdil.supabase.co/rest/v1"
 local SUPABASE_KEY = "sb_publishable_mOB4oa0BTuTlnAOoE0iLOA_GMa7sfxX"
+-- ==========================================================
+-- PROFILE: nama group bot kamu di dashboard.
+-- Isi sama kayak di script Tracker, biar kegabung 1 grup.
+-- Kosongin ("") kalau gak mau dipisah.
+-- ==========================================================
+local PROFILE = ""
 -- Webhook: pakai yang bawaan script di bawah ini.
 -- Ganti webhook? Ubah DISCORD_WEBHOOK_DEFAULT aja.
 -- Kalau user gak set webhook, fallback ke default di bawah.
@@ -201,6 +207,7 @@ local function pushPlazaData()
 
         local body = {
             ["username"] = Player.Name,
+            ["profile"]  = (PROFILE ~= "" and PROFILE) or nil,
             ["tokens"] = currentTokens,
             ["isi_tas"] = inv,
             ["last_update"] = "now()"

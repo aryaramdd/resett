@@ -1,115 +1,6 @@
 -- ============================================================
 -- VALIDASI SCRIPT KEY (otomatis ditambahin di atas script lo)
 -- ============================================================
-local __SB_URL  = "https://kojfzfblyueopjzrzdil.supabase.co"
-local __SB_KEY  = "sb_publishable_mOB4oa0BTuTlnAOoE0iLOA_GMa7sfxX"
-local __REQ     = (syn and syn.request) or (http and http.request)
-    or http_request or (Fluxus and Fluxus.request) or request
-
--- ============================================================
--- PICKUP KEY — multi-channel.
--- Banyak executor ngasih environment terpisah buat hasil
--- loadstring(), jadi global dari loader sering gak keliatan.
--- Makanya key juga dilewatkan langsung sebagai ARGUMEN:
---     loadstring(game:HttpGet("url"))("key")
--- ============================================================
-local __CHUNK_ARGS = {...}
-
-local function __getKey()
-    -- 1. argumen langsung (paling reliable, gak peduli environment)
-    if type(__CHUNK_ARGS[1]) == "string" and #__CHUNK_ARGS[1] >= 8 then
-        return __CHUNK_ARGS[1], "argumen"
-    end
-
-    -- 2. getgenv (Synapse / Fluxus / ScriptWare / dll)
-    local okg, genv = pcall(function() return getgenv() end)
-    if okg and type(genv) == "table"
-       and type(genv.script_key) == "string" and #genv.script_key >= 8 then
-        return genv.script_key, "getgenv"
-    end
-
-    -- 3. global environment
-    local g1 = rawget(_G, "script_key")
-    if type(g1) == "string" and #g1 >= 8 then return g1, "_G.rawget" end
-    local g2 = _G.script_key
-    if type(g2) == "string" and #g2 >= 8 then return g2, "_G" end
-
-    -- 4. getfenv berlapis
-    for i = 0, 4 do
-        local okf, env = pcall(function() return getfenv(i) end)
-        if okf and type(env) == "table"
-           and type(env.script_key) == "string" and #env.script_key >= 8 then
-            return env.script_key, "getfenv(" .. i .. ")"
-        end
-    end
-
-    return nil, nil
-end
-
-local function __validateKey()
-    if not __REQ then
-        warn("[KEY] Executor gak support HTTP request. Script dibatalkan.")
-        return false
-    end
-
-    local key, src = __getKey()
-    if not key then
-        warn("[KEY] script_key gak ketemu di semua channel.")
-        warn("[KEY] Coba: loadstring(...)('key')  <- key jadi ARGUMEN")
-        return false
-    end
-    print("[KEY] Key terdeteksi via: " .. tostring(src))
-
-    local username = game:GetService("Players").LocalPlayer and
-        game:GetService("Players").LocalPlayer.Name or ""
-
-    local ok, res = pcall(function()
-        return __REQ({
-            Url    = __SB_URL .. "/rest/v1/rpc/validate_script_key",
-            Method = "POST",
-            Headers = {
-                ["apikey"]        = __SB_KEY,
-                ["Authorization"] = "Bearer " .. __SB_KEY,
-                ["Content-Type"]  = "application/json",
-            },
-            Body = game:GetService("HttpService"):JSONEncode({
-                p_key      = key,
-                p_username = username,
-            }),
-        })
-    end)
-
-    if not ok or not res then
-        warn("[KEY] Gagal nyambung ke server.")
-        return false
-    end
-    if res.StatusCode ~= 200 then
-        warn("[KEY] Server nolak. HTTP " .. tostring(res.StatusCode))
-        return false
-    end
-
-    local body = res.Body or ""
-    if body:find('"ok":%s*true') then return true end
-
-    if body:find("username_not_linked") then
-        warn("[KEY] Username " .. username .. " belum di-link di dashboard.")
-    elseif body:find("key_invalid") then
-        warn("[KEY] Key tidak valid / sudah dicabut.")
-    else
-        warn("[KEY] Ditolak: " .. body)
-    end
-    return false
-end
-
-if not __validateKey() then
-    warn("============================================")
-    warn("  AKSES DITOLAK — script tidak dijalankan")
-    warn("  Hubungi admin kalau ini salah.")
-    warn("============================================")
-    return
-end
--- ============================================================
-
 -- =====================================================================
 -- CATHLEEN PRO TRACKER - ETFB (Escape Tsunami Farming Bot)
 -- =====================================================================
@@ -131,8 +22,8 @@ local request_func = (syn and syn.request) or (http and http.request)
     or http_request or (Fluxus and Fluxus.request) or (request)
 
 -- ============================================ \\
---   WEBHOOK DISCORD (diambil dari dashboard)
---   Ganti webhook: menu "Script Saya" di dashboard.
+--   WEBHOOK DISCORD (bawaan script)
+--   Ganti webhook: ubah DISCORD_WEBHOOK_DEFAULT aja.
 --   Gak perlu buka GitHub.
 -- ============================================ \\
 local DISCORD_WEBHOOK_DEFAULT = "https://webhook-cathy.vercel.app/api/webhooks/1496693380493869108/d_Asq17-cDNSzPyH6k3IIpiSfWpSpWBKXOyn5aY4GMmwnfIhQPvNHF2AV_yaOjHrJ03l"
@@ -163,59 +54,7 @@ local function routeThroughProxy(url)
     return url
 end
 
-local function fetchMyWebhook()
-    if not request_func then return end
-    local key = rawget(_G, "script_key")
-    if type(key) ~= "string" or #key < 8 then return end
 
-    local ok, res = pcall(function()
-        return request_func({
-            Url = "https://kojfzfblyueopjzrzdil.supabase.co/rest/v1/rpc/get_webhook_by_key",
-            Method = "POST",
-            Headers = {
-                ["apikey"]        = SUPABASE_KEY,
-                ["Authorization"] = "Bearer " .. SUPABASE_KEY,
-                ["Content-Type"]  = "application/json",
-            },
-            Body = HttpService:JSONEncode({ p_key = key }),
-        })
-    end)
-
-    if not ok or not res or res.StatusCode ~= 200 then
-        warn("[Webhook] Gagal ambil dari server.")
-        return
-    end
-
-    local raw = tostring(res.Body or "")
-    local body = raw:match('^"(.*)"$')
-    if body and body:find("^https://") then
-        DISCORD_WEBHOOK = routeThroughProxy(body)
-        print("[Webhook] Loaded dari dashboard.")
-    else
-        warn("[Webhook] Belum diset di dashboard, pakai default.")
-    end
-end
-
-local function pushDiscord(message)
-    if not DISCORD_WEBHOOK or not request_func then return end
-    pcall(function()
-        request_func({
-            Url = DISCORD_WEBHOOK,
-            Method = "POST",
-            Headers = { ["Content-Type"] = "application/json" },
-            Body = HttpService:JSONEncode({
-                embeds = {{
-                    title       = "Cathleen Tracker - " .. LocalPlayer.Name,
-                    description = tostring(message),
-                    color       = 1752220,
-                    footer      = { text = os.date("%H:%M:%S") }
-                }}
-            })
-        })
-    end)
-end
-
-fetchMyWebhook()
 
 local function cleanName(name)
     for _, mut in ipairs(Mutations) do
@@ -260,7 +99,7 @@ local function sendTrackerLog(message)
             })
         })
     end)
-    -- notif Discord (kalau user udah set webhook di dashboard)
+    -- notif Discord (pakai webhook bawaan)
     pushDiscord(tostring(message))
 end
 
@@ -319,127 +158,32 @@ local function sendData()
         end
     end
     local inv = getInventory()
-    if not request_func then
-        warn("[STATS] gak ada request_func")
-        return
-    end
-
-    local payload = {
-        username    = LocalPlayer.Name,
-        money       = moneyVal,
-        slot_tas    = slot,
-        isi_tas     = inv,
-        last_update = os.date("!%Y-%m-%dT%H:%M:%SZ")
-    }
-    local body = HttpService:JSONEncode(payload)
-
-    -- =====================================================
-    -- JANGAN pake "ON CONFLICT" (upsert).
-    -- Di RLS, ON CONFLICT wajib BACA baris lama buat deteksi
-    -- konflik -> butuh policy SELECT. Role anon gak punya
-    -- (ps_select_owner cuma buat authenticated) -> selalu gagal
-    -- "new row violates row-level security policy".
-    -- INSERT polos TERBUKTI jalan. Makanya dipisah:
-    --   1. UPDATE dulu (ps_update_bot: using true -> jalan)
-    --   2. kalau 0 baris ke-update -> INSERT polos
-    -- =====================================================
-    local BASE = SUPABASE_URL .. "/rest/v1/player_stats"
-    local HEAD = {
-        ["apikey"]        = SUPABASE_KEY,
-        ["Authorization"] = "Bearer " .. SUPABASE_KEY,
-        ["Content-Type"]  = "application/json"
-    }
-
-    -- =====================================================
-    -- URUTAN: INSERT dulu, baru UPDATE kalau 409.
-    --
-    -- Kenapa gak boleh UPDATE duluan:
-    --   PostgREST balikin 204 buat PATCH MAUPUN kalau 0 baris
-    --   kena filter. Jadi 204 GAK ngebuktiin ada baris.
-    --   -> ngira udah ke-update, INSERT gak jalan,
-    --      baris gak pernah kebentuk (data hilang).
-    --
-    -- INSERT polos udah TERBUKTI jalan (isolasi test).
-    -- Kalau barisnya udah ada, Postgres lempar unique violation
-    --   -> PostgREST balikin 409 -> baru kita UPDATE.
-    -- =====================================================
-    local BASE = SUPABASE_URL .. "/rest/v1/player_stats"
-    local HEAD = {
-        ["apikey"]        = SUPABASE_KEY,
-        ["Authorization"] = "Bearer " .. SUPABASE_KEY,
-        ["Content-Type"]  = "application/json"
-    }
-
-    local function call(method, url, data)
-        local ok, res = pcall(function()
-            return request_func({
-                Url     = url,
-                Method  = method,
-                Headers = HEAD,
-                Body    = data
+    if request_func then
+        request_func({
+            Url    = SUPABASE_URL .. "/rest/v1/player_stats",
+            Method = "POST",
+            Headers = {
+                ["apikey"]        = SUPABASE_KEY,
+                ["Authorization"] = "Bearer " .. SUPABASE_KEY,
+                ["Content-Type"]  = "application/json",
+                ["Prefer"]        = "resolution=merge-duplicates"
+            },
+            Body = HttpService:JSONEncode({
+                username    = LocalPlayer.Name,
+                money       = moneyVal,
+                slot_tas    = slot,
+                isi_tas     = inv,
+                last_update = os.date("!%Y-%m-%dT%H:%M:%SZ")
             })
-        end)
-        if not ok then return nil, tostring(res) end
-        return tonumber(res and res.StatusCode) or 0, res
-    end
-
-    -- tahap 1: INSERT polos (tanpa ON CONFLICT)
-    local code, res = call("POST", BASE, body)
-
-    if code == 0 then
-        warn("[STATS] INSERT crash: " .. tostring(res))
-        return
-    end
-
-    if code < 400 then
-        print("[STATS] OK insert " .. tostring(code))
-        return
-    end
-
-    -- 409 = unique violation = baris udah ada -> lanjut UPDATE
-    if code ~= 409 then
-        warn("[STATS] SERVER TOLAK " .. tostring(code))
-        warn("[STATS] body: " .. tostring(res and res.Body))
-        return
-    end
-
-    -- tahap 2: baris udah ada -> UPDATE
-    local updBody = HttpService:JSONEncode({
-        money       = payload.money,
-        slot_tas    = payload.slot_tas,
-        isi_tas     = payload.isi_tas,
-        last_update = payload.last_update
-    })
-
-    local ucode, ures = call(
-        "PATCH",
-        BASE .. "?username=eq." .. HttpService:UrlEncode(LocalPlayer.Name),
-        updBody
-    )
-
-    if ucode == 0 then
-        warn("[STATS] UPDATE crash: " .. tostring(ures))
-        return
-    end
-
-    if ucode >= 400 then
-        warn("[STATS] SERVER TOLAK (update) " .. tostring(ucode))
-        warn("[STATS] body: " .. tostring(ures and ures.Body))
-    else
-        print("[STATS] OK update " .. tostring(ucode))
+        })
     end
 end
-
-
 
 task.spawn(function()
     print("✅ Cathleen ETFB Tracker Active!")
     pcall(hookDisplayPopup)
     while true do
-        local okS, errS = pcall(sendData)
-        if not okS then
-            warn("[STATS] sendData CRASH: " .. tostring(errS))
-        end
+        pcall(sendData)
         task.wait(UPDATE_INTERVAL)
     end
 end)

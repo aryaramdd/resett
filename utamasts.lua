@@ -350,7 +350,60 @@ local function sendData()
         ["Content-Type"]  = "application/json"
     }
 
-    -- tahap 1: UPDATE baris yang udah ada
+    -- =====================================================
+    -- URUTAN: INSERT dulu, baru UPDATE kalau 409.
+    --
+    -- Kenapa gak boleh UPDATE duluan:
+    --   PostgREST balikin 204 buat PATCH MAUPUN kalau 0 baris
+    --   kena filter. Jadi 204 GAK ngebuktiin ada baris.
+    --   -> ngira udah ke-update, INSERT gak jalan,
+    --      baris gak pernah kebentuk (data hilang).
+    --
+    -- INSERT polos udah TERBUKTI jalan (isolasi test).
+    -- Kalau barisnya udah ada, Postgres lempar unique violation
+    --   -> PostgREST balikin 409 -> baru kita UPDATE.
+    -- =====================================================
+    local BASE = SUPABASE_URL .. "/rest/v1/player_stats"
+    local HEAD = {
+        ["apikey"]        = SUPABASE_KEY,
+        ["Authorization"] = "Bearer " .. SUPABASE_KEY,
+        ["Content-Type"]  = "application/json"
+    }
+
+    local function call(method, url, data)
+        local ok, res = pcall(function()
+            return request_func({
+                Url     = url,
+                Method  = method,
+                Headers = HEAD,
+                Body    = data
+            })
+        end)
+        if not ok then return nil, tostring(res) end
+        return tonumber(res and res.StatusCode) or 0, res
+    end
+
+    -- tahap 1: INSERT polos (tanpa ON CONFLICT)
+    local code, res = call("POST", BASE, body)
+
+    if code == 0 then
+        warn("[STATS] INSERT crash: " .. tostring(res))
+        return
+    end
+
+    if code < 400 then
+        print("[STATS] OK insert " .. tostring(code))
+        return
+    end
+
+    -- 409 = unique violation = baris udah ada -> lanjut UPDATE
+    if code ~= 409 then
+        warn("[STATS] SERVER TOLAK " .. tostring(code))
+        warn("[STATS] body: " .. tostring(res and res.Body))
+        return
+    end
+
+    -- tahap 2: baris udah ada -> UPDATE
     local updBody = HttpService:JSONEncode({
         money       = payload.money,
         slot_tas    = payload.slot_tas,
@@ -358,52 +411,25 @@ local function sendData()
         last_update = payload.last_update
     })
 
-    local okU, resU = pcall(function()
-        return request_func({
-            Url     = BASE .. "?username=eq." .. HttpService:UrlEncode(LocalPlayer.Name),
-            Method  = "PATCH",
-            Headers = HEAD,
-            Body    = updBody
-        })
-    end)
+    local ucode, ures = call(
+        "PATCH",
+        BASE .. "?username=eq." .. HttpService:UrlEncode(LocalPlayer.Name),
+        updBody
+    )
 
-    if not okU then
-        warn("[STATS] UPDATE crash: " .. tostring(resU))
+    if ucode == 0 then
+        warn("[STATS] UPDATE crash: " .. tostring(ures))
         return
     end
 
-    -- 204 = ada baris ke-update. 406/[] = gak ada baris sama sekali.
-    local codeU = tonumber(resU and resU.StatusCode) or 0
-    local updated = (codeU == 204 or codeU == 200)
-
-    if updated then
-        print("[STATS] OK update " .. tostring(codeU))
-        return
-    end
-
-    -- tahap 2: baris belum ada -> INSERT polos (tanpa ON CONFLICT)
-    local okI, resI = pcall(function()
-        return request_func({
-            Url     = BASE,
-            Method  = "POST",
-            Headers = HEAD,
-            Body    = body
-        })
-    end)
-
-    if not okI then
-        warn("[STATS] INSERT crash: " .. tostring(resI))
-        return
-    end
-
-    local codeI = tonumber(resI and resI.StatusCode) or 0
-    if codeI >= 400 then
-        warn("[STATS] SERVER TOLAK " .. tostring(codeI))
-        warn("[STATS] body: " .. tostring(resI.Body))
+    if ucode >= 400 then
+        warn("[STATS] SERVER TOLAK (update) " .. tostring(ucode))
+        warn("[STATS] body: " .. tostring(ures and ures.Body))
     else
-        print("[STATS] OK insert " .. tostring(codeI))
+        print("[STATS] OK update " .. tostring(ucode))
     end
 end
+
 
 
 task.spawn(function()

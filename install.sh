@@ -4,7 +4,7 @@
 #
 # CARA PAKAI (di SETIAP cloudphone, 1 command doang):
 #
-#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/aryaramdd/resett/refs/heads/main/noka/install.sh)"
+#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/aryaramdd/resett/refs/heads/main/install.sh)"
 #
 # Opsi (append di akhir):
 #   ... install.sh) --setup      # cuma setup wizard
